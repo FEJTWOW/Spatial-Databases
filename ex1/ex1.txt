@@ -1,0 +1,224 @@
+create database firma;
+
+create schema ksiegowosc;
+
+set search_path to ksiegowosc, public; -- dzieki temu ksiegowosc jest pierwsza
+
+create table pracownicy (
+	id_pracownika int primary key not null,
+	imie text not null,
+	nazwisko text not null,
+	adres text not null,
+	telefon varchar(15)
+);
+
+comment on table pracownicy is 'This is the table pracownicy';
+
+/* https://www.depesz.com/2010/03/02/charx-vs-varcharx-vs-varchar-vs-text/
+podobno jest jakiś międzynarodowy standard żeby dawać telefonowi varchara(15)
+natomiast o ile dobrze czytam z tego artykułu tekst jest chyba najlepszym typem do 
+przechowywania tego typu danych zatem pytanie czy lepiej do przechowywania numeru telefonu 
+wybrać tekst czy varchar? */
+
+create table godziny (
+	id_godziny int primary key not null,
+	data date not null,
+	liczba_godzin int not null,
+	id_pracownika int not null,
+	constraint id_pracownik foreign key(id_pracownika) references pracownicy(id_pracownika) on delete cascade on update cascade
+);
+
+comment on table godziny is 'This is the table godziny';
+
+-- może oczywiste pytanie ale po co jest ta nazwa po constraint, tam chyba można wpisać cokolwiek
+-- edit już chyba wiem po co, czy to jest brane tylko do wyświetlania błędu?
+
+create table pensja (
+	id_pensji int primary key not null,
+	stanowisko text not null,
+	kwota money not null
+);
+
+comment on table pensja is 'This is the table pensja';
+
+create table premia (
+	id_premii int primary key not null,
+	rodzaj text not null,
+	kwota money not null
+);
+
+comment on table premia is 'This is the table premia';
+
+create table wynagrodzenie (
+	id_wynagrodzenia int primary key not null,
+	data date not null,
+	id_pracownika int not null,
+	id_godziny int not null,
+	id_pensji int not null,
+	id_premii int not null,
+	constraint id_pracownik foreign key(id_pracownika) references pracownicy(id_pracownika) on delete cascade on update cascade,
+	constraint id_godziny foreign key(id_godziny) references godziny(id_godziny) on delete cascade on update cascade,
+	constraint id_pensji foreign key(id_pensji) references pensja(id_pensji) on delete cascade on update cascade,
+	constraint id_premii foreign key(id_premii) references premia(id_premii) on delete cascade on update cascade
+);
+
+comment on table pracownicy is 'This is the table wynagrodzenie';
+
+insert into pracownicy values
+(0, 'Pamela', 'Anderson', 'W Hollywood, CA 90069', '133713371'),
+(1, 'Luke', 'Skywalker', '5858 Lucas Valley Rd, Nicasio, CA 94946', '321321321'),
+(2, 'Michal', 'Skladnikiewicz', 'Zurych', '123456789'),
+(3, 'Naruto', 'Uzumaki', 'Japan Konoha Village', '987654321'),
+(4, 'JKeanu', 'Reeves', '9601 Wilshire Blvd. 3rd Floor Beverly Hills, CA 90210-5213', '432156789');
+
+insert into godziny values
+(0, '2021-07-17', 160, 0),
+(1, '2021-07-17', 170, 1),
+(2, '2021-07-17', 140, 2),
+(3, '2021-07-17', 190, 3),
+(4, '2021-07-17', 200, 4);
+
+insert into pensja values
+(0, 'Tynkarz', 900),
+(1, 'Murarz', 2900),
+(2, 'Zabijaka', 2900),
+(3, 'Kominiarz', 1500),
+(4, 'Zabijaka', 10000);
+
+insert into premia values
+(0, 'Tygoniowa', 200),
+(1, 'Miesieczna', 0),
+(2, 'Kwartalna', 400),
+(3, 'Roczna', 0),
+(4, 'Dwuletnia', 600);
+
+insert into wynagrodzenie values
+(0, '2021-07-24', 0, 0, 0, 0),
+(1, '2021-07-25', 1, 1, 1, 1),
+(2, '2021-07-26', 2, 2, 2, 2),
+(3, '2021-07-27', 3, 3, 3, 3),
+(4, '2021-07-28', 4, 4, 4, 4);
+
+/* DEBUG
+delete from pracownicy;
+delete from wynagrodzenie;
+delete from pensja;
+delete from godziny;
+delete from premia;
+
+drop table pracownicy;
+drop table wynagrodzenie;
+drop table pensja;
+drop table godziny;
+drop table premia;
+*/
+
+-- a) wyświetl tylko id pracownika oraz jego naziwsko
+select id_pracownika,nazwisko from pracownicy;
+
+-- b) wyświetl id pracowików, których płaca jest większa niż 1000
+select id_pracownika from wynagrodzenie w 
+inner join pensja on pensja.id_pensji = w.id_pensji where pensja.kwota > 1000::money;
+
+-- c) Wyświetl id pracowników nieposiadających premii, których płaca jest większa niż 2000
+select id_pracownika from wynagrodzenie w 
+inner join pensja on pensja.id_pensji = w.id_pensji  
+inner join premia on premia.id_premii = w.id_premii
+where pensja.kwota > 2000::money and premia.kwota = 0::money;
+
+-- d) Wyświetl pracowników, których pierwsza litera imienia zaczyna się na literę ‘J’. 
+select imie from pracownicy p where p.imie like 'J%';
+
+-- e) Wyświetl pracowników, których nazwisko zawiera literę ‘n’ oraz imię kończy się na literę ‘a’
+select imie,nazwisko from pracownicy p where p.imie like '%a'
+and p.nazwisko like '%n%';
+
+-- f) Wyświetl imię i nazwisko pracowników oraz liczbę ich nadgodzin, przyjmując, iż standardowy czas 
+-- pracy to 160 h miesięcznie
+
+select * from (select imie, nazwisko, (godziny.liczba_godzin - 160) as nadgodziny from pracownicy 
+inner join godziny on godziny.id_pracownika = pracownicy.id_pracownika) as foo where nadgodziny > 0;
+
+-- g) Wyświetl imię i nazwisko pracowników, których pensja zawiera się w przedziale 1500 – 3000 PLN.
+
+select imie,nazwisko from pracownicy 
+inner join wynagrodzenie w on w.id_pracownika = pracownicy.id_pracownika 
+inner join pensja p on w.id_pensji = p.id_pensji 
+where p.kwota between 1500::money and 3000::money
+
+-- h) Wyświetl imię i nazwisko pracowników, którzy pracowali w nadgodzinach i nie otrzymali premii
+
+select imie,nazwisko from pracownicy p 
+inner join wynagrodzenie w on w.id_pracownika = p.id_pracownika 
+inner join godziny g on g.id_godziny = w.id_godziny 
+inner join premia pre on pre.id_premii = w.id_premii 
+where (g.liczba_godzin - 160 > 0) and pre.kwota = 0::money;
+
+-- i)  Uszereguj pracowników według pensji.
+
+select imie,nazwisko, pen.kwota from pracownicy p
+inner join wynagrodzenie w on w.id_pracownika = p.id_pracownika 
+inner join pensja pen on w.id_pensji = pen.id_pensji 
+order by pen.kwota;
+
+-- j) Uszereguj pracowników według pensji i premii malejąco.
+
+select imie,nazwisko, pen.kwota from pracownicy p
+inner join wynagrodzenie w on w.id_pracownika = p.id_pracownika 
+inner join pensja pen on w.id_pensji = pen.id_pensji 
+inner join premia pre on pre.id_premii = w.id_premii 
+order by pen.kwota asc, pre.kwota desc;
+
+-- k) Zlicz i pogrupuj pracowników według pola ‘stanowisko’.
+
+select count(*) as ilosc, p.stanowisko from pracownicy pra
+inner join wynagrodzenie w on w.id_pracownika = pra.id_pracownika 
+inner join pensja p on p.id_pensji = w.id_pensji 
+group by p.stanowisko;
+
+
+-- l) Policz średnią, minimalną i maksymalną płacę dla stanowiska ‘kierownik’ (jeżeli takiego nie masz, to 
+-- przyjmij dowolne inne).
+
+select avg(p.kwota::decimal) as srednia, min(p.kwota::decimal) as min, max(p.kwota::decimal) as max from pracownicy as pra
+inner join wynagrodzenie w on w.id_pracownika = pra.id_pracownika
+inner join pensja p on p.id_pensji = w.id_pensji
+where p.stanowisko = 'Zabijaka';
+
+-- m) Policz sumę wszystkich wynagrodzeń.
+
+select (sum(p.kwota::decimal)+sum(pre.kwota::decimal)) as suma from wynagrodzenie w 
+inner join pensja p on w.id_pensji = p.id_pensji
+inner join premia pre on w.id_premii = pre.id_premii 
+
+-- f) Policz sumę wynagrodzeń w ramach danego stanowiska.
+
+select p.stanowisko, (sum(p.kwota::decimal)+sum(pre.kwota::decimal)) as suma from wynagrodzenie w
+inner join pensja p on w.id_pensji = p.id_pensji
+inner join premia pre on w.id_premii = pre.id_premii 
+group by p.stanowisko 
+
+-- g) Wyznacz liczbę premii przyznanych dla pracowników danego stanowiska.
+
+select p.stanowisko, sum(pre.kwota::decimal) as premie from wynagrodzenie w
+inner join pensja p on w.id_pensji = p.id_pensji
+inner join premia pre on w.id_premii = pre.id_premii 
+group by p.stanowisko 
+
+-- h) Usuń wszystkich pracowników mających pensję mniejszą niż 1200 zł
+-- violates foreign key constraint...?
+delete from pracownicy
+where id_pracownika in (
+	select p.id_pracownika from pracownicy p
+	inner join wynagrodzenie w on p.id_pracownika = w.id_pracownika 
+	inner join pensja pen on w.id_pensji = pen.id_pensji 
+	where pen.kwota < 1200::money
+);
+
+/* debug
+select * from pracownicy
+select * from godziny
+select * from pensja
+select * from wynagrodzenie
+select * from premia
+*/
