@@ -42,6 +42,11 @@ insert into poi values
 (3, ST_GeomFromText('POINT(6.5 6)'), 'J'),
 (4, ST_GeomFromText('POINT(6 9.5)'), 'K');
 
+/* DEBUG
+drop table buildings;
+drop table roads;
+drop table poi;
+*/
 
 -- a) Wyznacz całkowitą długość dróg w analizowanym mieście
 select sum(ST_Length(roads.geometry)) from roads;
@@ -70,3 +75,19 @@ order by ST_Area(b.geometry) desc limit 2;
 
 select ST_Distance(b.geometry,p.geometry) from buildings b, poi p
 where b.name = 'BuildingC' and p.name = 'G';
+
+-- f) Wypisz pole powierzchni tej części budynku BuildingC, która znajduje się w odległości 
+-- większej niż 0.5 od budynku BuildingB.
+
+select ST_Difference(buildingC.geometry,ST_Buffer(ST_Intersection(buildingC.geometry,buildingB.geometry)::geometry,0.5, 'quad_segs=8')) from buildings buildingB, buildings buildingC
+where buildingC.name = 'BuildingC' and buildingB.name = 'BuildingB';
+
+-- g) Wybierz te budynki, których centroid (ST_Centroid) znajduje się powyżej drogi 
+-- o nazwie RoadX. 
+
+
+-- 8. Oblicz pole powierzchni tych części budynku BuildingC i poligonu 
+-- o współrzędnych (4 7, 6 7, 6 8, 4 8, 4 7), które nie są wspólne dla tych dwóch 
+
+select ST_Area(b.geometry)+ST_Area(ST_GeomFromText('POLYGON((4 7, 6 7, 6 8, 4 8, 4 7))'))-2*ST_Area(ST_Intersection(b.geometry ,ST_GeomFromText('POLYGON((4 7, 6 7, 6 8, 4 8, 4 7))'))) from buildings b 
+where b.name = 'BuildingC';
