@@ -79,12 +79,14 @@ where b.name = 'BuildingC' and p.name = 'G';
 -- f) Wypisz pole powierzchni tej części budynku BuildingC, która znajduje się w odległości 
 -- większej niż 0.5 od budynku BuildingB.
 
-select ST_Difference(buildingC.geometry,ST_Buffer(ST_Intersection(buildingC.geometry,buildingB.geometry)::geometry,0.5, 'quad_segs=8')) from buildings buildingB, buildings buildingC
+select ST_Area(ST_Difference(buildingC.geometry,ST_Buffer(ST_Intersection(buildingC.geometry,buildingB.geometry),0.5, 'quad_segs=8'))) from buildings buildingB, buildings buildingC
 where buildingC.name = 'BuildingC' and buildingB.name = 'BuildingB';
 
 -- g) Wybierz te budynki, których centroid (ST_Centroid) znajduje się powyżej drogi 
 -- o nazwie RoadX. 
 
+select b.name from buildings b, roads r
+where ST_Centroid(b.geometry) |>> r.geometry and r.name = 'RoadX'
 
 -- 8. Oblicz pole powierzchni tych części budynku BuildingC i poligonu 
 -- o współrzędnych (4 7, 6 7, 6 8, 4 8, 4 7), które nie są wspólne dla tych dwóch 
