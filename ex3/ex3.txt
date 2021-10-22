@@ -1,0 +1,56 @@
+create extension postgis;
+
+
+-- Wyznacz liczbę budynków (tabela: popp, atrybut: f_codedesc, reprezentowane, jako punkty) położonych w odległości mniejszej niż 1000 m od głównych rzek. 
+-- Budynki spełniające to kryterium zapisz do osobnej tabeli tableB
+select p.* into tableb from popp p, rivers r
+where p.f_codedesc = 'Building' and ST_isValid(p.geom) and ST_isValid(r.geom) and not ST_isEmpty(p.geom) and not ST_isEmpty(r.geom) and ST_Distance(p.geom,r.geom) < 1000;
+
+
+select * from tableb
+drop table tableB;
+
+
+-- Utwórz tabelę o nazwie airportsNew. Z tabeli airports do airportsNew zaimportuj nazwy lotnisk, 
+-- ich geometrię, a także atrybut elev, reprezentujący wysokość n.p.m.  
+
+select a.name, a.geom, a.elev into airportsNew from airports a;
+
+select * from airportsNew
+
+-- a)
+
+select min(ST_X(a.geom)) from airportsnew a; 
+select max(ST_X(a.geom)) from airportsnew a;
+
+select * from airportsnew a, (select min(ST_X(a.geom)) as west from airportsnew a) w, (select max(ST_X(a.geom)) as east from airportsnew a) e
+where ST_X(a.geom) = west or ST_X(a.geom) = east;
+
+-- b)
+
+-- Wyznacz pole powierzchni obszaru, który oddalony jest mniej niż 1000 jednostek od najkrótszej linii łączącej jezioro o nazwie ‘Iliamna Lake’ 
+-- i lotnisko o nazwie „AMBLER”
+
+select * from lakes;
+select * from airports a; 
+
+select ST_ShortestLine(l.geom ,a.geom) from lakes l, airports a 
+where l.names = 'Iliamna Lake' and a.name = 'AMBLER';
+
+select sum(ST_Area(r.geom)) from regions r, (select ST_ShortestLine(l.geom ,a.geom) as sline from lakes l, airports a 
+where l.names = 'Iliamna Lake' and a.name = 'AMBLER') s where 
+ST_Distance(r.geom,s.sline) < 1000;
+
+-- Napisz zapytanie, które zwróci sumaryczne pole powierzchni poligonów reprezentujących 
+-- poszczególne typy drzew znajdujących się na obszarze tundry i bagien (swamps).  
+
+select * from trees;
+select * from tundra;
+select * from swamp;
+
+select t.vegdesc, ST_Area(t.geom) from trees t, tundra tu
+where not ST_IsEmpty(ST_Intersection(t.geom,tu.geom);
+
+select t.vegdesc, sum(ST_Area(t.geom)) from trees t, tundra tu, swamp s
+where not ST_isEmpty(ST_Intersection(t.geom,tu.geom)) or not 
+ST_isEmpty(ST_Intersection(t.geom,s.geom)) group by t.vegdesc;
