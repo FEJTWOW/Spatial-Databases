@@ -18,15 +18,30 @@ select a.name, a.geom, a.elev into airportsNew from airports a;
 
 select * from airportsNew
 
--- a)
+-- a) Znajdź lotnisko, które położone jest najbardziej na zachód i najbardziej na wschód
 
 select min(ST_X(a.geom)) from airportsnew a; 
 select max(ST_X(a.geom)) from airportsnew a;
 
 select * from airportsnew a, (select min(ST_X(a.geom)) as west from airportsnew a) w, (select max(ST_X(a.geom)) as east from airportsnew a) e
-where ST_X(a.geom) = west or ST_X(a.geom) = east;
+where ST_X(a.geom) = w.west or ST_X(a.geom) = e.east;
 
--- b)
+-- b) Do tabeli airportsNew dodaj nowy obiekt - lotnisko, które położone jest w punkcie środkowym drogi pomiędzy  
+-- lotniskami znalezionymi w punkcie a. Lotnisko nazwij airportB. Wysokość n.p.m. przyjmij dowolną.
+
+
+select a.geom as west from airportsnew a, (select min(ST_X(a.geom)) as west from airportsnew a) w
+where ST_X(a.geom) = w.west;
+
+select a.geom as east from airportsnew a, (select max(ST_X(a.geom)) as east from airportsnew a) e
+where ST_X(a.geom) = e.east;
+
+insert into airportsnew 
+select 'airportsB',ST_Point((ST_X(e.east)+ST_X(w.west))/2, (ST_Y(e.east)+ST_Y(w.west))/2), 100 from (select a.geom as west from airportsnew a, (select min(ST_X(a.geom)) as west from airportsnew a) w
+where ST_X(a.geom) = w.west) w, (select a.geom as east from airportsnew a, (select max(ST_X(a.geom)) as east from airportsnew a) e
+where ST_X(a.geom) = e.east) e;
+
+select * from airportsnew a 
 
 -- Wyznacz pole powierzchni obszaru, który oddalony jest mniej niż 1000 jednostek od najkrótszej linii łączącej jezioro o nazwie ‘Iliamna Lake’ 
 -- i lotnisko o nazwie „AMBLER”
@@ -54,3 +69,6 @@ where not ST_IsEmpty(ST_Intersection(t.geom,tu.geom);
 select t.vegdesc, sum(ST_Area(t.geom)) from trees t, tundra tu, swamp s
 where not ST_isEmpty(ST_Intersection(t.geom,tu.geom)) or not 
 ST_isEmpty(ST_Intersection(t.geom,s.geom)) group by t.vegdesc;
+
+
+select sum(st_area(t.geom)), t.vegdesc from trees t group by t.vegdesc;
