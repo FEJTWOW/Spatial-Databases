@@ -1,0 +1,85 @@
+create table wierciak.porto_ndvi as  
+with r as ( 
+ 	select a.rid,ST_Clip(a.rast, b.geom,true) as rast 
+ 	from rasters.landsat8 as a, vectors.porto_parishes as b 
+ 	where b.municipality ilike 'porto' and ST_Intersects(b.geom,a.rast) 
+) 
+select 
+ r.rid,ST_MapAlgebra( 
+  r.rast, 1, 
+  r.rast, 4, 
+  '([rast2.val] - [rast1.val]) / ([rast2.val] + 
+[rast1.val])::float','32BF' 
+ ) as rast 
+from r;
+
+create index idx_porto_ndvi_rast_gist on wierciak.porto_ndvi 
+using gist (ST_ConvexHull(rast));
+
+select AddRasterConstraints('wierciak'::name, 
+'porto_ndvi'::name,'rast'::name); 
+
+
+create or replace function wierciak.ndvi( 
+ value double precision [] [] [],  
+ pos integer [][], 
+ variadic userargs text [] 
+) 
+returns double precision as 
+$$ 
+begin 
+ --RAISE NOTICE 'Pixel Value: %', value [1][1][1];-->For debug 
+ return (value [2][1][1] - value [1][1][1])/(value [2][1][1]+value 
+[1][1][1]); --> NDVI calculation! 
+end; 
+$$ 
+language 'plpgsql' immutable cost 1000;
+
+
+create table wierciak.porto_ndvi2 as  
+with r as ( 
+ select a.rid,ST_Clip(a.rast, b.geom,true) as rast 
+ from rasters.landsat8 as a, vectors.porto_parishes as b 
+ where b.municipality ilike 'porto' and ST_Intersects(b.geom,a.rast) 
+) 
+select 
+ r.rid,ST_MapAlgebra( 
+  r.rast, array[1,4], 
+  'wierciak.ndvi(double precision[], 
+integer[],text[])'::regprocedure, --> This is the function! 
+  '32BF'::text 
+ ) as rast 
+from r;
+
+create index idx_porto_ndvi2_rast_gist on wierciak.porto_ndvi2 
+using gist (ST_ConvexHull(rast)); 
+
+select AddRasterConstraints('wierciak'::name, 
+'porto_ndvi2'::name,'rast'::name);
+
+
+select ST_AsTiff(ST_Union(rast)) 
+from wierciak.porto_ndvi; 
+
+select ST_AsGDALRaster(ST_Union(rast), 'GTiff',  array['COMPRESS=DEFLATE', 
+'PREDICTOR=2', 'PZLEVEL=9']) 
+from wierciak.porto_ndvi; 
+
+select ST_GDALDrivers(); 
+
+
+
+create table tmp_out as
+select lo_from_bytea(0, 
+       ST_AsGDALRaster(ST_Union(rast), 'GTiff',  array['COMPRESS=DEFLATE', 
+'PREDICTOR=2', 'PZLEVEL=9']) 
+        ) as loid 
+from wierciak.porto_ndvi;
+
+select lo_export(loid, 'C:\Users\Public\myraster.tiff') --> Save the file in a place 
+-- where the user postgres have access. In windows a flash drive usualy works 
+-- fine. 
+   from tmp_out;
+  
+select lo_unlink(loid) 
+from tmp_out; --> Delete the large object. 
